@@ -1,0 +1,6 @@
+"STARTUP.obj",
+"main.obj",
+"ADC0832.obj",
+"lcd1602.obj",
+"SHT11.obj" 
+TO "main" 

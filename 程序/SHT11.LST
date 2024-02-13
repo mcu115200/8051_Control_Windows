@@ -1,0 +1,215 @@
+C51 COMPILER V9.01   SHT11                                                                 03/28/2021 14:10:41 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE SHT11
+OBJECT MODULE PLACED IN SHT11.OBJ
+COMPILER INVOKED BY: d:\Keil\C51\BIN\C51.EXE SHT11.C BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <SHT11.h>
+   2          #include"intrins.h"
+   3          unsigned char sht_temp;                 // 保存温度
+   4          unsigned char sht_humi;                 // 保存湿度
+   5          
+   6          typedef union                           //定义共用同类型
+   7          {
+   8                  unsigned int i;
+   9                  float f;
+  10          }value;
+  11          
+  12          char ShtWriteByte(unsigned char value)
+  13          {
+  14   1              unsigned char i,error=0;
+  15   1              for(i=128;i>0;i>>=1)  // 高位为1，循环右移
+  16   1              {
+  17   2                      if (i&value)
+  18   2                              Data_P=1;               // 和要发送的数相与，结果为发送的位
+  19   2                      else
+  20   2                              Data_P=0;
+  21   2                      Sck_P=1;
+  22   2                      _nop_();                                                // 延时3us
+  23   2                      _nop_();
+  24   2                      _nop_();
+  25   2                      Sck_P=0;
+  26   2              }
+  27   1              Data_P=1;                                       // 释放数据线
+  28   1              Sck_P=1;
+  29   1              error=Data_P;                           // 检查应答信号，确认通讯正常
+  30   1              _nop_();
+  31   1              _nop_();
+  32   1              _nop_();
+  33   1              Sck_P=0;
+  34   1              Data_P=1;
+  35   1              return error;                           // error=1 通讯错误
+  36   1      }
+  37          
+  38          char ShtReadByte(unsigned char ack)
+  39          {
+  40   1              unsigned char i,val=0;
+  41   1              Data_P=1;                                               // 释放数据线
+  42   1              for(i=0x80;i>0;i>>=1)   // 高位为1，循环右移
+  43   1              {
+  44   2                      Sck_P=1;
+  45   2                      if(Data_P)
+  46   2                              val=(val|i);            // 读一位数据线的值
+  47   2                      Sck_P=0;
+  48   2              }
+  49   1              Data_P=!ack;                            // 如果是校验，读取完后结束通讯
+  50   1              Sck_P=1;
+  51   1              _nop_();                                                        // 延时3us
+  52   1              _nop_();
+  53   1              _nop_();
+  54   1              Sck_P=0;
+  55   1              _nop_();
+C51 COMPILER V9.01   SHT11                                                                 03/28/2021 14:10:41 PAGE 2   
+
+  56   1              _nop_();
+  57   1              _nop_();
+  58   1              Data_P=1;                                               // 释放数据线
+  59   1              return val;
+  60   1      }
+  61          
+  62          
+  63          void ShtTransStart(void)
+  64          {
+  65   1              Data_P=1;
+  66   1              Sck_P=0;
+  67   1              _nop_();
+  68   1              Sck_P=1;
+  69   1              _nop_();
+  70   1              Data_P=0;
+  71   1              _nop_();
+  72   1              Sck_P=0;
+  73   1              _nop_();
+  74   1              _nop_();
+  75   1              _nop_();
+  76   1              Sck_P=1;
+  77   1              _nop_();
+  78   1              Data_P=1;
+  79   1              _nop_();
+  80   1              Sck_P=0;
+  81   1      }
+  82          
+  83          void ShtConnectReset(void)
+  84          {
+  85   1              unsigned char i;
+  86   1              Data_P=1;                               //准备
+  87   1              Sck_P=0;
+  88   1              for(i=0;i<9;i++)        //DATA保持高，SCK时钟触发9次，发送启动传输，通迅即复位
+  89   1              {
+  90   2                      Sck_P=1;
+  91   2                      Sck_P=0;
+  92   2              }
+  93   1              ShtTransStart();        //启动传输
+  94   1      }
+  95          
+  96          char ShtMeasure(unsigned char *p_value, unsigned char *p_checksum, unsigned char mode)
+  97          {
+  98   1              unsigned error=0;
+  99   1              unsigned int i;
+ 100   1              ShtTransStart();                // 启动传输
+ 101   1              switch(mode)                    // 选择发送命令
+ 102   1              {
+ 103   2                      case 1 :                                        // 测量温度
+ 104   2                              error+=ShtWriteByte(0x03);
+ 105   2                              break;
+ 106   2                      case 2 :                                        // 测量湿度
+ 107   2                              error+=ShtWriteByte(0x05);
+ 108   2                              break;
+ 109   2                      default:
+ 110   2                              break;
+ 111   2              }
+ 112   1              for(i=0;i<65535;i++)
+ 113   1                      if(Data_P==0)
+ 114   1                              break;                                          // 等待测量结束
+ 115   1                      if(Data_P)
+ 116   1                              error+=1;                       // 如果长时间数据线没有拉低，说明测量错误
+ 117   1              *(p_value) =ShtReadByte(1);             // 读第一个字节，高字节 (MSB)
+C51 COMPILER V9.01   SHT11                                                                 03/28/2021 14:10:41 PAGE 3   
+
+ 118   1              *(p_value+1)=ShtReadByte(1);            // 读第二个字节，低字节 (LSB)
+ 119   1              *p_checksum =ShtReadByte(0);    // read CRC校验码
+ 120   1              return error;                                                                   // error=1 通讯错误
+ 121   1      }
+ 122          
+ 123          void CalcSHT11(float *p_humidity ,float *p_temperature)
+ 124          {
+ 125   1              const float C1=-4.0;                            // 12位湿度精度 修正公式
+ 126   1              const float C2=+0.0405;                 // 12位湿度精度 修正公式
+ 127   1              const float C3=-0.0000028;      // 12位湿度精度 修正公式
+ 128   1              const float T1=+0.01;                           // 14位温度精度 5V条件 修正公式
+ 129   1              const float T2=+0.00008;                // 14位温度精度 5V条件 修正公式
+ 130   1              float rh=*p_humidity;                           // rh: 12位 湿度
+ 131   1              float t=*p_temperature;                 // t:  14位 温度
+ 132   1              float rh_lin;                                                           // rh_lin: 湿度 linear值
+ 133   1              float rh_true;                                                  // rh_true: 湿度 ture值
+ 134   1              float t_C;                                                                      // t_C : 温度 ℃
+ 135   1              t_C=t*0.01 - 40;                                                //补偿温度
+ 136   1              rh_lin=C3*rh*rh + C2*rh + C1;                                   //相对湿度非线性补偿
+ 137   1              rh_true=(t_C-25)*(T1+T2*rh)+rh_lin;             //相对湿度对于温度依赖性补偿
+ 138   1              *p_temperature=t_C;                                     //返回温度结果
+ 139   1              *p_humidity=rh_true;                            //返回湿度结果
+ 140   1      }
+ 141          
+ 142          unsigned char TempCorrect(int temp)
+ 143          {
+ 144   1              if(temp<0)      temp=0;
+ 145   1              if(temp>970)  temp=970;
+ 146   1              if(temp>235)  temp=temp+10;
+ 147   1              if(temp>555)  temp=temp+10;
+ 148   1              if(temp>875)  temp=temp+10;
+ 149   1              temp=(temp%1000)/10;
+ 150   1              return temp;
+ 151   1      }
+ 152          
+ 153          unsigned char HumiCorrect(unsigned int humi)
+ 154          {
+ 155   1              if(humi>999)  humi=999;
+ 156   1              if((humi>490)&&(humi<951))  humi=humi-10;
+ 157   1              humi=(humi%1000)/10;
+ 158   1              return humi+4;
+ 159   1      }
+ 160          
+ 161          void ReadShtData()
+ 162          {
+ 163   1              value humi_val,temp_val;        // 定义两个共同体，一个用于湿度，一个用于温度
+ 164   1              unsigned char error;                                                    // 用于检验是否出现错误
+ 165   1              unsigned char checksum;                                                 // CRC
+ 166   1              unsigned int temp1,humi1;                                               // 临时读取到的温湿度数据
+ 167   1      
+ 168   1              error=0;                                                                                //初始化error=0，即没有错误
+ 169   1              error+=ShtMeasure((unsigned char*)&temp_val.i,&checksum,1);     //温度测量
+ 170   1              error+=ShtMeasure((unsigned char*)&humi_val.i,&checksum,2);     //湿度测量
+ 171   1      
+ 172   1              if(error!=0)                                                    //如果发生错误，系统复位
+ 173   1                      ShtConnectReset();
+ 174   1              else
+ 175   1              {
+ 176   2                      humi_val.f=(float)humi_val.i;                           //转换为浮点数
+ 177   2                      temp_val.f=(float)temp_val.i;                           //转换为浮点数
+ 178   2                      CalcSHT11(&humi_val.f,&temp_val.f);     //修正相对湿度及温度
+ 179   2                      temp1=temp_val.f*10;
+C51 COMPILER V9.01   SHT11                                                                 03/28/2021 14:10:41 PAGE 4   
+
+ 180   2                      sht_temp=TempCorrect(temp1);
+ 181   2                      humi1=humi_val.f*10-50;
+ 182   2                      sht_humi=HumiCorrect(humi1);
+ 183   2                      humi1=humi1-1;
+ 184   2              }
+ 185   1      
+ 186   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    959    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2      65
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

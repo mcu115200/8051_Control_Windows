@@ -1,0 +1,267 @@
+C51 COMPILER V9.01   MAIN                                                                  03/28/2021 14:10:40 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: d:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg51.h"
+   2          #include "ADC0832.h"
+   3          #include "lcd1602.h"
+   4          #include "SHT11.h"
+   5          #define uchar unsigned char
+   6          #define uint unsigned int
+   7          sbit AA=P2^4;//电机
+   8          sbit BB=P2^5;
+   9          sbit CC=P2^6;
+  10          sbit DD=P2^7;
+  11          sbit led=P2^3;//指示灯
+  12          sbit man=P3^6;//人体红外
+  13          
+  14          uchar yan=0,light=0;//烟雾、光照
+  15          uchar lim1=50,lim2=50,lim3=25,lim4=70;//阀值
+  16          uchar mode=0,time=0;
+  17          uchar disp1[]="00";
+  18          uchar disp2[]="000";
+  19          
+  20          uchar key_scan()//按键检测
+  21          {
+  22   1      uchar i,j;
+  23   1      i=0;
+  24   1      j=0;
+  25   1      P1=0x0f;
+  26   1      if(P1!=0x0f) //检测有无按下
+  27   1      {
+  28   2       switch(P1)//检测行
+  29   2       {
+  30   3        case 0x0e:i=1;break;
+  31   3        case 0x0d:i=5;break;
+  32   3        case 0x0b:i=9;break;
+  33   3        case 0x07:i=13;
+  34   3       }
+  35   2       P1=0xf0;
+  36   2       switch(P1)//检测列
+  37   2       {
+  38   3        case 0xe0:j=0;break;
+  39   3        case 0xd0:j=1;break;
+  40   3        case 0xb0:j=2;break;
+  41   3        case 0x70:j=3;
+  42   3       }
+  43   2       while(P1!=0xf0);//等待按键松开
+  44   2      }
+  45   1      return i+j;
+  46   1      }
+  47          
+  48          void zheng()//正转
+  49          {       
+  50   1              uchar i=0;
+  51   1              for(i=0;i<20;i++)
+  52   1              {
+  53   2              BB=1;delay_uint(5000);
+  54   2              AA=0;delay_uint(5000);
+  55   2              CC=1;delay_uint(5000);
+C51 COMPILER V9.01   MAIN                                                                  03/28/2021 14:10:40 PAGE 2   
+
+  56   2              BB=0;delay_uint(5000);
+  57   2              DD=1;delay_uint(5000);
+  58   2              CC=0;delay_uint(5000);
+  59   2              AA=1;delay_uint(5000);
+  60   2              DD=0;delay_uint(5000);
+  61   2              }
+  62   1              led=0;
+  63   1      }
+  64          void fan() //反转
+  65          {
+  66   1              uchar i=0;
+  67   1              for(i=0;i<20;i++)
+  68   1              {
+  69   2                      DD=1;delay_uint(5000);
+  70   2                      AA=0;delay_uint(5000);
+  71   2                      CC=1;delay_uint(5000);
+  72   2                      DD=0;delay_uint(5000);
+  73   2                      BB=1;delay_uint(5000);
+  74   2                      CC=0;delay_uint(5000);
+  75   2                      AA=1;delay_uint(5000);
+  76   2                      BB=0;delay_uint(5000);
+  77   2              }
+  78   1              led=1;
+  79   1      }
+  80          //主函数
+  81          void main()
+  82          {
+  83   1              uchar i=0;
+  84   1              init_1602();
+  85   1              TMOD|=0X01;
+  86   1              TH0=0X3C;
+  87   1              TL0=0XB0;       
+  88   1              ET0=1;//打开定时器0中断允许
+  89   1              EA=1;//打开总中断
+  90   1              TR0=1;//打开定时器
+  91   1              while(1)
+  92   1              {
+  93   2                       i=key_scan();//按键检测
+  94   2                       if(i==1)//设置
+  95   2                       {
+  96   3                              mode=1;
+  97   3                              write_string(1,0,"                ");
+  98   3                              write_string(2,0,"                ");
+  99   3                      }
+ 100   2                      if(i==2)//OK
+ 101   2                      {
+ 102   3                              mode=0;
+ 103   3                              write_string(1,0,"                ");
+ 104   3                              write_string(2,0,"                ");
+ 105   3                              }
+ 106   2                      //判断
+ 107   2                      if((yan>lim1)||(sht_temp>lim3)||(sht_humi>lim4))
+ 108   2                      {
+ 109   3                              if(led)
+ 110   3                                      zheng();//开窗
+ 111   3                      }
+ 112   2                      else
+ 113   2                      {
+ 114   3                              if((light>lim2)|| !man)
+ 115   3                              {
+ 116   4                                      if(!led)
+ 117   4                                              fan();//关窗
+C51 COMPILER V9.01   MAIN                                                                  03/28/2021 14:10:40 PAGE 3   
+
+ 118   4                              }
+ 119   3                      }
+ 120   2                      //按键设置
+ 121   2                      if(mode==1)
+ 122   2                      {
+ 123   3                              if(i==3)//温度
+ 124   3                              {
+ 125   4                                      if(lim3<99)
+ 126   4                                              lim3++;
+ 127   4                              }
+ 128   3                              if(i==4)
+ 129   3                              {
+ 130   4                                      if(lim3>0)
+ 131   4                                              lim3--;
+ 132   4                              }
+ 133   3                              if(i==5)//烟雾
+ 134   3                              {
+ 135   4                                      if(lim1<99)
+ 136   4                                              lim1++;
+ 137   4                              }
+ 138   3                              if(i==6)
+ 139   3                              {
+ 140   4                                      if(lim1>0)
+ 141   4                                              lim1--;
+ 142   4                              }
+ 143   3                              if(i==7)//湿度
+ 144   3                              {
+ 145   4                                      if(lim4<99)
+ 146   4                                              lim4++;
+ 147   4                              }
+ 148   3                              if(i==8)
+ 149   3                              {
+ 150   4                                      if(lim4>0)
+ 151   4                                              lim4--;
+ 152   4                              }
+ 153   3                              if(i==9)//光照
+ 154   3                              {
+ 155   4                                      if(lim2<255)
+ 156   4                                              lim2++;
+ 157   4                              }
+ 158   3                              if(i==10)
+ 159   3                              {
+ 160   4                                      if(lim2>0)
+ 161   4                                              lim2--;
+ 162   4                              }
+ 163   3                      }
+ 164   2              }
+ 165   1      }
+ 166          //定时器0中断
+ 167          void Timer0() interrupt 1
+ 168          {
+ 169   1              uint i;
+ 170   1              if(time<10)//延时采样
+ 171   1                      time++;
+ 172   1              else
+ 173   1              {
+ 174   2                      time=0;
+ 175   2                      yan=ADC(1);//测量烟雾
+ 176   2                      light=ADC(2);//测量光照
+ 177   2                      i=yan;
+ 178   2                      i=i*99/128;
+ 179   2                      yan=i;
+C51 COMPILER V9.01   MAIN                                                                  03/28/2021 14:10:40 PAGE 4   
+
+ 180   2                      
+ 181   2                      ReadShtData();//测量温湿度
+ 182   2      
+ 183   2                      //显示
+ 184   2                      if(mode==0)
+ 185   2                      {
+ 186   3                              disp1[0]=yan/10+0x30;
+ 187   3                              disp1[1]=yan%10+0x30;
+ 188   3                              write_string(1,0,"Y:");
+ 189   3                              write_string(1,2,disp1);
+ 190   3      
+ 191   3                              disp2[0]=light/100+0x30;
+ 192   3                              disp2[1]=light%100/10+0x30;
+ 193   3                              disp2[2]=light%10+0x30;
+ 194   3                              write_string(1,4,"%   G:");
+ 195   3                              write_string(1,10,disp2);
+ 196   3                              write_string(1,13,"Lx");
+ 197   3      
+ 198   3                              disp1[0]=sht_temp/10+0x30;
+ 199   3                              disp1[1]=sht_temp%10+0x30;
+ 200   3                              write_string(2,0,"T:");
+ 201   3                              write_string(2,2,disp1);
+ 202   3      
+ 203   3                              disp1[0]=sht_humi/10+0x30;
+ 204   3                              disp1[1]=sht_humi%10+0x30;
+ 205   3                              write_string(2,4,"C   S:");
+ 206   3                              write_string(2,10,disp1);
+ 207   3                              write_string(2,12,"% ");
+ 208   3                      }
+ 209   2                      else
+ 210   2                      {
+ 211   3                              disp1[0]=lim1/10+0x30;
+ 212   3                              disp1[1]=lim1%10+0x30;
+ 213   3                              write_string(1,0,"set:");
+ 214   3                              write_string(1,4,disp1);
+ 215   3      
+ 216   3                              disp2[0]=lim2/100+0x30;
+ 217   3                              disp2[1]=lim2%100/10+0x30;
+ 218   3                              disp2[2]=lim2%10+0x30;
+ 219   3                              write_string(1,6,"%  ");
+ 220   3                              write_string(1,9,disp2);
+ 221   3                              write_string(1,12,"Lx");
+ 222   3      
+ 223   3                              disp1[0]=lim3/10+0x30;
+ 224   3                              disp1[1]=lim3%10+0x30;
+ 225   3                              write_string(2,4,disp1);
+ 226   3      
+ 227   3                              disp1[0]=lim4/10+0x30;
+ 228   3                              disp1[1]=lim4%10+0x30;
+ 229   3                              write_string(2,6,"C  ");
+ 230   3                              write_string(2,9,disp1);
+ 231   3                              write_string(2,11,"% ");
+ 232   3                      }
+ 233   2              }
+ 234   1              TH0=0X3C;
+ 235   1              TL0=0XB0;
+ 236   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1121    ----
+   CONSTANT SIZE    =     56    ----
+C51 COMPILER V9.01   MAIN                                                                  03/28/2021 14:10:40 PAGE 5   
+
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     15       5
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

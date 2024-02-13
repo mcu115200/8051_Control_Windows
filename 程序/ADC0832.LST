@@ -1,0 +1,90 @@
+C51 COMPILER V9.01   ADC0832                                                               03/28/2021 14:10:40 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE ADC0832
+OBJECT MODULE PLACED IN ADC0832.OBJ
+COMPILER INVOKED BY: d:\Keil\C51\BIN\C51.EXE ADC0832.C BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "ADC0832.h"
+   2          #include "intrins.h"
+   3          /*********************************************
+   4          读取ADC
+   5          **********************************************/
+   6          uchar ADC(uchar ch)//通道ch      1,2
+   7          {
+   8   1              uchar temp0,temp1,i;
+   9   1              CS=0;
+  10   1              temp0=0;
+  11   1              temp1=0;
+  12   1              _nop_();
+  13   1              _nop_();
+  14   1              DI=1;//开始位
+  15   1              _nop_();
+  16   1              _nop_();
+  17   1              CLK=1;
+  18   1              _nop_();
+  19   1              _nop_();
+  20   1              CLK=0;
+  21   1              _nop_();
+  22   1              _nop_();
+  23   1              DI=0;
+  24   1              _nop_();
+  25   1              _nop_();
+  26   1      //选择通道0
+  27   1              DI=1;
+  28   1              _nop_();
+  29   1              CLK=1;//上升沿DI=1
+  30   1              _nop_();
+  31   1              CLK=0;//1个下降沿DI=1
+  32   1              _nop_();
+  33   1              if(ch==1)
+  34   1              DI=0;
+  35   1              if(ch==2)
+  36   1              DI=1;
+  37   1              _nop_();
+  38   1              CLK=1;
+  39   1              _nop_();
+  40   1              CLK=0;//第3个上升沿DI=0
+  41   1              _nop_();
+  42   1              DI=1;
+  43   1      //********通道选择结束开始读取转换后的二进制数****
+  44   1      //下降沿读数，一下进行判断和处理,共8次
+  45   1      for(i=0;i<8;i++)
+  46   1         {
+  47   2              temp0=temp0<<1;
+  48   2              CLK=1;
+  49   2          if(DO)
+  50   2              temp0++;
+  51   2              _nop_();
+  52   2              CLK=0;
+  53   2         }
+  54   1      for(i=0;i<8;i++)
+  55   1         {
+C51 COMPILER V9.01   ADC0832                                                               03/28/2021 14:10:40 PAGE 2   
+
+  56   2              temp1=temp1>>1;
+  57   2              CLK=1;
+  58   2          if(DO)
+  59   2              temp1=temp1 +0x80;
+  60   2              _nop_();
+  61   2              CLK=0;
+  62   2         }
+  63   1               CS=1;
+  64   1         return temp0;
+  65   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     96    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
